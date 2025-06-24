@@ -1,6 +1,3 @@
-Here's a well-structured README.md for your S3 Manager project:
-
-```markdown
 # S3 Manager (Deno Backend)
 
 A web-based interface for managing AWS S3 buckets and objects with a Deno backend.
