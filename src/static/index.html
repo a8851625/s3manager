@@ -1,0 +1,707 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>S3 Manager </title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        /* Custom scrollbar */
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: #f1f1f1; }
+        ::-webkit-scrollbar-thumb { background: #888; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #555; }
+        
+        /* Animation for loading */
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        .animate-spin { animation: spin 1s linear infinite; }
+        
+        /* Custom checkbox */
+        .custom-checkbox { appearance: none; -webkit-appearance: none; width: 18px; height: 18px; border: 2px solid #d1d5db; border-radius: 4px; cursor: pointer; position: relative; transition: all 0.2s; }
+        .custom-checkbox:checked { background-color: #3b82f6; border-color: #3b82f6; }
+        .custom-checkbox:checked::after { content: "✓"; position: absolute; color: white; font-size: 12px; top: 50%; left: 50%; transform: translate(-50%, -50%); }
+
+        /* Security Warning */
+        .security-warning {
+            background-color: #fffbeb;
+            border-left: 4px solid #fbbF24;
+            padding: 1rem;
+            margin-bottom: 1rem;
+        }
+    </style>
+</head>
+<body class="bg-gray-50 text-gray-800">
+    <div class="min-h-screen flex flex-col">
+        <header class="bg-white shadow-sm">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between">
+                <div class="flex items-center space-x-4">
+                    <div class="bg-blue-600 p-2 rounded-lg">
+                        <i class="fas fa-database text-white text-xl"></i>
+                    </div>
+                    <h1 class="text-xl font-bold text-gray-800">S3 Manager (Deno Backend)</h1>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <button id="connect-btn" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition duration-200 flex items-center space-x-2">
+                        <i class="fas fa-plug"></i>
+                        <span>Connect</span>
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <main class="flex-1 flex overflow-hidden">
+            <aside class="w-72 bg-white border-r border-gray-200 flex flex-col">
+                <div class="p-4 border-b border-gray-200">
+                    <h2 class="font-semibold text-gray-700">AWS Configuration</h2>
+                </div>
+                <div class="p-4 space-y-4">
+                    <div class="security-warning">
+                        <div class="flex">
+                            <div class="flex-shrink-0">
+                                <i class="fas fa-exclamation-triangle text-yellow-400"></i>
+                            </div>
+                            <div class="ml-3">
+                                <h3 class="text-sm font-medium text-yellow-800">Security Warning</h3>
+                                <div class="mt-2 text-sm text-yellow-700">
+                                    <p>Your credentials will be sent to a Deno backend running locally. Please ensure that the backend environment is secure and not exposed on public networks.</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div>
+                        <label for="endpoint" class="block text-sm font-medium text-gray-700 mb-1">Endpoint URL (Optional)</label>
+                        <input type="url" id="endpoint" placeholder="https://s3.example.com" class="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    </div>
+                    <div>
+                        <label for="access-key" class="block text-sm font-medium text-gray-700 mb-1">Access Key ID</label>
+                        <input type="text" id="access-key" placeholder="AKIA..." class="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    </div>
+                    <div>
+                        <label for="secret-key" class="block text-sm font-medium text-gray-700 mb-1">Secret Access Key</label>
+                        <input type="password" id="secret-key" placeholder="••••••••" class="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    </div>
+                    <div>
+                        <label for="region" class="block text-sm font-medium text-gray-700 mb-1">Region</label>
+                        <select id="region" class="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            <option value="us-east-1">us-east-1 (N. Virginia)</option>
+                            <option value="us-east-2">us-east-2 (Ohio)</option>
+                            <option value="us-west-1">us-west-1 (N. California)</option>
+                            <option value="us-west-2">us-west-2 (Oregon)</option>
+                            <option value="af-south-1">af-south-1 (Cape Town)</option>
+                            <option value="ap-east-1">ap-east-1 (Hong Kong)</option>
+                            <option value="ap-south-1">ap-south-1 (Mumbai)</option>
+                            <option value="ap-northeast-2">ap-northeast-2 (Seoul)</option>
+                            <option value="ap-southeast-1">ap-southeast-1 (Singapore)</option>
+                            <option value="ap-southeast-2">ap-southeast-2 (Sydney)</option>
+                            <option value="ap-northeast-1">ap-northeast-1 (Tokyo)</option>
+                            <option value="ca-central-1">ca-central-1 (Central)</option>
+                            <option value="eu-central-1">eu-central-1 (Frankfurt)</option>
+                            <option value="eu-west-1">eu-west-1 (Ireland)</option>
+                            <option value="eu-west-2">eu-west-2 (London)</option>
+                            <option value="eu-south-1">eu-south-1 (Milan)</option>
+                            <option value="eu-west-3">eu-west-3 (Paris)</option>
+                            <option value="eu-north-1">eu-north-1 (Stockholm)</option>
+                            <option value="me-south-1">me-south-1 (Bahrain)</option>
+                            <option value="sa-east-1">sa-east-1 (São Paulo)</option>
+                        </select>
+                    </div>
+                </div>
+            </aside>
+
+            <div class="flex-1 flex flex-col overflow-hidden">
+                <div class="bg-white border-b border-gray-200 p-4 flex items-center justify-between">
+                    <div class="flex items-center space-x-2">
+                        <button id="refresh-btn" class="p-2 rounded-md hover:bg-gray-100 text-gray-600 hover:text-gray-800" title="Refresh">
+                            <i class="fas fa-sync-alt"></i>
+                        </button>
+                        <button id="create-bucket-btn" class="p-2 rounded-md hover:bg-gray-100 text-gray-600 hover:text-gray-800" title="Create Bucket">
+                            <i class="fas fa-plus-square"></i>
+                        </button>
+                    </div>
+                    <div class="flex items-center space-x-2">
+                        <button id="upload-btn" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-md text-sm flex items-center space-x-1">
+                            <i class="fas fa-upload"></i>
+                            <span>Upload</span>
+                        </button>
+                        <button id="new-folder-btn" class="bg-white hover:bg-gray-50 border border-gray-300 text-gray-700 px-3 py-1.5 rounded-md text-sm flex items-center space-x-1">
+                            <i class="fas fa-folder-plus"></i>
+                            <span>New Folder</span>
+                        </button>
+                        <button id="delete-btn" class="bg-red-500 hover:bg-red-600 text-white px-3 py-1.5 rounded-md text-sm flex items-center space-x-1">
+                            <i class="fas fa-trash-alt"></i>
+                            <span>Delete</span>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="bg-gray-50 px-4 py-2 border-b border-gray-200">
+                    <nav class="flex" aria-label="Breadcrumb" id="breadcrumb">
+                         <ol class="flex items-center space-x-2 text-sm"><li><button class="text-gray-500 cursor-not-allowed">S3</button></li></ol>
+                    </nav>
+                </div>
+
+                <div class="flex-1 overflow-auto">
+                    <div class="relative h-full">
+                        <div id="loading" class="hidden absolute inset-0 flex items-center justify-center bg-white bg-opacity-75 z-20">
+                            <div class="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+                        </div>
+                        
+                        <div id="initial-state" class="h-full flex flex-col items-center justify-center text-gray-500 p-8">
+                            <i class="fas fa-plug text-4xl mb-4"></i>
+                            <h3 class="text-lg font-medium mb-1">Not Connected</h3>
+                            <p class="text-sm max-w-md text-center">Please connect to your AWS account using the button in the top right or the sidebar to view your S3 buckets.</p>
+                        </div>
+
+                        <div id="empty-state" class="hidden h-full flex flex-col items-center justify-center text-gray-500 p-8">
+                            <i class="fas fa-folder-open text-4xl mb-4"></i>
+                            <h3 class="text-lg font-medium mb-1">No items found</h3>
+                            <p class="text-sm max-w-md text-center">This location is empty. Upload files or create a new folder to get started.</p>
+                        </div>
+
+                        <div id="file-browser" class="hidden">
+                           <table class="min-w-full divide-y divide-gray-200">
+                                <thead class="bg-gray-50 sticky top-0 z-10">
+                                    <tr>
+                                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-8">
+                                            <input type="checkbox" id="select-all-checkbox" class="custom-checkbox">
+                                        </th>
+                                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
+                                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Size</th>
+                                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Last Modified</th>
+                                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="file-list" class="bg-white divide-y divide-gray-200">
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-gray-50 border-t border-gray-200 px-4 py-2 text-sm text-gray-600 flex justify-between items-center">
+                    <div id="status-message">Ready</div>
+                    <div id="selected-count">0 items selected</div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Modals -->
+    <div id="connect-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden"> <div class="bg-white rounded-lg shadow-xl w-full max-w-md"><div class="p-6"><div class="flex items-center justify-between mb-4"><h3 class="text-lg font-medium text-gray-900">Connect to AWS S3</h3><button id="close-connect-modal" class="text-gray-400 hover:text-gray-500"><i class="fas fa-times"></i></button></div><div class="space-y-4"><div><label for="modal-endpoint" class="block text-sm font-medium text-gray-700 mb-1">Endpoint URL (Optional)</label><input type="url" id="modal-endpoint" placeholder="https://s3.example.com" class="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"></div><div><label class="block text-sm font-medium text-gray-700 mb-1">Access Key ID</label><input type="text" id="modal-access-key" placeholder="AKIA..." class="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"></div><div><label class="block text-sm font-medium text-gray-700 mb-1">Secret Access Key</label><input type="password" id="modal-secret-key" placeholder="••••••••" class="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"></div><div><label class="block text-sm font-medium text-gray-700 mb-1">Region</label><select id="modal-region" class="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"></select></div></div><div class="mt-6 flex justify-end space-x-3"><button id="cancel-connect" type="button" class="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50">Cancel</button><button id="confirm-connect" type="button" class="px-4 py-2 bg-blue-600 text-white rounded-md text-sm font-medium hover:bg-blue-700">Connect</button></div></div></div> </div>
+    <div id="new-bucket-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden"> <div class="bg-white rounded-lg shadow-xl w-full max-w-md"><div class="p-6"><div class="flex items-center justify-between mb-4"><h3 class="text-lg font-medium text-gray-900">Create New Bucket</h3><button id="close-bucket-modal" class="text-gray-400 hover:text-gray-500"><i class="fas fa-times"></i></button></div><div class="space-y-4"><div><label class="block text-sm font-medium text-gray-700 mb-1">Bucket Name</label><input type="text" id="bucket-name" placeholder="my-new-bucket" class="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"><p class="mt-1 text-xs text-gray-500">Bucket names must be unique across all of AWS S3</p></div><div><label class="block text-sm font-medium text-gray-700 mb-1">Region</label><select id="bucket-region" class="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"></select></div></div><div class="mt-6 flex justify-end space-x-3"><button id="cancel-bucket" type="button" class="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50">Cancel</button><button id="create-bucket" type="button" class="px-4 py-2 bg-blue-600 text-white rounded-md text-sm font-medium hover:bg-blue-700">Create Bucket</button></div></div></div> </div>
+    <div id="new-folder-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden"> <div class="bg-white rounded-lg shadow-xl w-full max-w-md"><div class="p-6"><div class="flex items-center justify-between mb-4"><h3 class="text-lg font-medium text-gray-900">Create New Folder</h3><button id="close-folder-modal" class="text-gray-400 hover:text-gray-500"><i class="fas fa-times"></i></button></div><div class="space-y-4"><div><label class="block text-sm font-medium text-gray-700 mb-1">Folder Name</label><input type="text" id="folder-name" placeholder="my-new-folder" class="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"><p class="mt-1 text-xs text-gray-500">Folder will be created in the current location</p></div></div><div class="mt-6 flex justify-end space-x-3"><button id="cancel-folder" type="button" class="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50">Cancel</button><button id="create-folder" type="button" class="px-4 py-2 bg-blue-600 text-white rounded-md text-sm font-medium hover:bg-blue-700">Create Folder</button></div></div></div> </div>
+    <div id="upload-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden"> <div class="bg-white rounded-lg shadow-xl w-full max-w-lg"><div class="p-6"><div class="flex items-center justify-between mb-4"><h3 class="text-lg font-medium text-gray-900">Upload Files</h3><button id="close-upload-modal" class="text-gray-400 hover:text-gray-500"><i class="fas fa-times"></i></button></div><div class="space-y-4"><div id="drop-zone" class="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center"><i class="fas fa-cloud-upload-alt text-4xl text-gray-400 mb-3"></i><p class="text-sm text-gray-600 mb-2">Drag and drop files here or</p><label for="file-upload" class="cursor-pointer bg-blue-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-blue-700 inline-block">Select Files</label><input id="file-upload" type="file" class="hidden" multiple></div><div id="upload-list" class="max-h-48 overflow-y-auto"></div></div><div class="mt-6 flex justify-end space-x-3"><button id="cancel-upload" type="button" class="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50">Close</button><button id="start-upload" type="button" class="px-4 py-2 bg-blue-600 text-white rounded-md text-sm font-medium hover:bg-blue-700">Upload</button></div></div></div> </div>
+    <div id="delete-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden"> <div class="bg-white rounded-lg shadow-xl w-full max-w-md"><div class="p-6"><div class="flex items-center justify-between mb-4"><h3 class="text-lg font-medium text-gray-900">Confirm Deletion</h3><button id="close-delete-modal" class="text-gray-400 hover:text-gray-500"><i class="fas fa-times"></i></button></div><div class="space-y-4"><div class="bg-red-50 border-l-4 border-red-400 p-4"><div class="flex"><div class="flex-shrink-0"><i class="fas fa-exclamation-circle text-red-400"></i></div><div class="ml-3"><p class="text-sm text-red-700" id="delete-message">Are you sure you want to delete the selected items? This action cannot be undone.</p></div></div></div><div id="delete-items-list" class="max-h-40 overflow-y-auto border rounded-md p-2"></div></div><div class="mt-6 flex justify-end space-x-3"><button id="cancel-delete" type="button" class="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50">Cancel</button><button id="confirm-delete" type="button" class="px-4 py-2 bg-red-600 text-white rounded-md text-sm font-medium hover:bg-red-700">Delete</button></div></div></div> </div>
+
+    <script>
+    // --- Configuration ---
+    // 定义后端 API 的基础 URL。确保这与你的 Deno 服务器运行的地址和端口匹配。
+    const API_BASE_URL = 'http://localhost:8000/api';
+
+    // --- State Management ---
+    // 全局状态管理对象，用于跟踪应用的当前状态。
+    const state = {
+        awsConfig: {
+            endpoint: '',
+            accessKeyId: '',
+            secretAccessKey: '',
+            region: 'us-east-1'
+        },
+        currentBucket: null,
+        currentPath: '',
+        selectedItems: [],
+        buckets: [],
+        files: [],
+        isConnected: false,
+    };
+
+    // --- DOM Elements ---
+    // 使用代理动态获取 DOM 元素，避免在脚本开头写大量的 getElementById。
+    const elements = new Proxy({}, {
+        get(target, prop) {
+            if (!target[prop]) {
+                // 将驼峰命名 (e.g., fileList) 转换为 kebab-case (e.g., file-list)
+                const id = prop.replace(/([A-Z])/g, "-$1").toLowerCase();
+                target[prop] = document.getElementById(id);
+            }
+            return target[prop];
+        }
+    });
+
+    // --- API Helper ---
+    // 封装 fetch 调用，用于与后端 API 通信。
+    async function apiCall(endpoint, body) {
+        try {
+            const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body),
+            });
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+            }
+            return await response.json();
+        } catch (error) {
+            console.error(`API call to ${endpoint} failed:`, error);
+            showStatusMessage(error.message, 'error');
+            throw error; // 重新抛出错误，以便调用者可以捕获它
+        }
+    }
+
+    // --- Modal functions ---
+    function showModal(modal) { modal.classList.remove('hidden'); }
+    function hideModal(modal) { modal.classList.add('hidden'); }
+
+    // --- Core Logic ---
+    // 连接到 AWS 账户。现在它会调用后端的 /api/connect 端点。
+    async function connectToAWS(isFromSidebar = false) {
+        const accessKeyId = (isFromSidebar ? elements.accessKey.value : elements.modalAccessKey.value).trim();
+        const secretAccessKey = (isFromSidebar ? elements.secretKey.value : elements.modalSecretKey.value).trim();
+        const region = (isFromSidebar ? elements.region.value : elements.modalRegion.value);
+        const endpoint = (isFromSidebar ? elements.endpoint.value : elements.modalEndpoint.value).trim();
+
+        if (!accessKeyId || !secretAccessKey) {
+            showStatusMessage('Please provide both Access Key and Secret Key', 'error');
+            return;
+        }
+        
+        const config = { accessKeyId, secretAccessKey, region, endpoint };
+
+        showLoading(true);
+        showStatusMessage('Connecting...', 'info');
+
+        try {
+            await apiCall('/connect', { config });
+            
+            state.isConnected = true;
+            state.awsConfig = config;
+            if (!isFromSidebar) hideModal(elements.connectModal);
+            showStatusMessage('Successfully connected', 'success');
+            localStorage.setItem('awsS3ManagerConfig', JSON.stringify(state.awsConfig));
+            
+            // 同步侧边栏的配置信息
+            elements.endpoint.value = endpoint;
+            elements.accessKey.value = accessKeyId;
+            elements.secretKey.value = secretAccessKey;
+            elements.region.value = region;
+            
+            await loadBuckets();
+        } catch (error) {
+            state.isConnected = false;
+            // 错误消息已在 apiCall 中显示
+        } finally {
+            showLoading(false);
+        }
+    }
+    
+    // 加载存储桶列表
+    async function loadBuckets() {
+        if (!state.isConnected) return;
+        showLoading(true);
+        showStatusMessage('Loading buckets...', 'info');
+        elements.initialState.classList.add('hidden');
+        try {
+            const data = await apiCall('/buckets', { config: state.awsConfig });
+            state.buckets = data.buckets || [];
+            state.currentBucket = null;
+            state.currentPath = '';
+            renderBucketsList();
+            showStatusMessage('Buckets loaded successfully', 'success');
+        } catch (error) {
+            // 错误消息已在 apiCall 中显示
+        } finally {
+            showLoading(false);
+            updateBreadcrumb();
+        }
+    }
+    
+    // 列出存储桶中的对象
+    async function listObjects(prefix) {
+        if (!state.isConnected || !state.currentBucket) return;
+        showLoading(true);
+        showStatusMessage(`Loading contents of ${state.currentBucket}/${prefix}...`, 'info');
+        try {
+            const data = await apiCall('/objects', {
+                config: state.awsConfig,
+                bucket: state.currentBucket,
+                prefix: prefix
+            });
+            const folders = (data.commonPrefixes || []).map(p => ({ Key: p.Prefix, LastModified: new Date(), Size: 0, isFolder: true }));
+            const files = (data.contents || []).filter(c => c.Key !== prefix).map(c => ({...c, isFolder: false }));
+            state.files = [...folders, ...files].sort((a, b) => {
+                if (a.isFolder !== b.isFolder) return a.isFolder ? -1 : 1;
+                return a.Key.localeCompare(b.Key);
+            });
+            renderFilesList();
+            showStatusMessage('Contents loaded successfully', 'success');
+        } catch (error) {
+            // 错误消息已在 apiCall 中显示
+        } finally {
+            showLoading(false);
+        }
+    }
+
+    // 创建新的存储桶
+    async function createBucket() {
+        const bucketName = elements.bucketName.value.trim();
+        const region = elements.bucketRegion.value;
+        if (!bucketName) {
+            showStatusMessage('Please provide a bucket name', 'error');
+            return;
+        }
+        showLoading(true);
+        showStatusMessage(`Creating bucket ${bucketName}...`, 'info');
+        try {
+            await apiCall('/buckets/create', { config: state.awsConfig, bucketName, region });
+            hideModal(elements.newBucketModal);
+            elements.bucketName.value = '';
+            showStatusMessage(`Bucket ${bucketName} created successfully`, 'success');
+            await loadBuckets();
+        } catch (error) {
+            // 错误消息已在 apiCall 中显示
+        } finally {
+            showLoading(false);
+        }
+    }
+
+    // 创建新的文件夹
+    async function createFolder() {
+        const folderName = elements.folderName.value.trim();
+        if (!folderName || folderName.includes('/')) {
+            showStatusMessage('Invalid folder name', 'error');
+            return;
+        }
+        const key = `${state.currentPath}${folderName}/`;
+        showLoading(true);
+        showStatusMessage(`Creating folder ${folderName}...`, 'info');
+        try {
+            await apiCall('/folders/create', { config: state.awsConfig, bucket: state.currentBucket, key });
+            hideModal(elements.newFolderModal);
+            elements.folderName.value = '';
+            showStatusMessage(`Folder ${folderName} created successfully`, 'success');
+            await refreshContent();
+        } catch (error) {
+            // 错误消息已在 apiCall 中显示
+        } finally {
+            showLoading(false);
+        }
+    }
+    
+    // 开始上传文件。现在它会将文件发送到后端进行处理。
+    async function startUpload() {
+        const files = elements.fileUpload.files;
+        if (files.length === 0) {
+            showStatusMessage('Please select files to upload', 'error');
+            return;
+        }
+
+        hideModal(elements.uploadModal);
+        showLoading(true);
+        showStatusMessage(`Uploading ${files.length} file(s)...`, 'info');
+        
+        const formData = new FormData();
+        // 将配置和路径信息作为表单字段附加
+        formData.append('config', JSON.stringify(state.awsConfig));
+        formData.append('bucket', state.currentBucket);
+        formData.append('path', state.currentPath);
+        
+        // 附加所有文件
+        Array.from(files).forEach(file => {
+            formData.append('files', file, file.name);
+        });
+        
+        try {
+            // 使用 fetch 发送 FormData。浏览器会自动设置正确的 Content-Type。
+            const response = await fetch(`${API_BASE_URL}/upload`, {
+                method: 'POST',
+                body: formData,
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.error || `Upload failed with status: ${response.status}`);
+            }
+
+            const result = await response.json();
+            showStatusMessage(result.message, 'success');
+            await refreshContent();
+        } catch (error) {
+            console.error("Upload error:", error);
+            showStatusMessage(`Upload failed: ${error.message}`, 'error');
+        } finally {
+            showLoading(false);
+            elements.fileUpload.value = '';
+            elements.uploadList.innerHTML = '';
+        }
+    }
+
+    // 确认删除所选项目
+    async function confirmDelete() {
+        if (state.selectedItems.length === 0) {
+            hideModal(elements.deleteModal);
+            return;
+        }
+        showLoading(true);
+        showStatusMessage('Deleting selected items...', 'info');
+        
+        try {
+            await apiCall('/delete', {
+                config: state.awsConfig,
+                bucket: state.currentBucket,
+                items: state.selectedItems
+            });
+            showStatusMessage('Selected items deleted successfully', 'success');
+        } catch (error) {
+            let errorMessage = error.message;
+            if (error.message.includes('BucketNotEmpty')) {
+                 errorMessage = "Cannot delete bucket. It must be empty.";
+            }
+            showStatusMessage(`Delete failed: ${errorMessage}`, 'error');
+        } finally {
+            state.selectedItems = [];
+            updateSelectedCount();
+            hideModal(elements.deleteModal);
+            await refreshContent();
+            showLoading(false);
+        }
+    }
+    
+    // --- Navigation ---
+    async function navigateToBucket(bucketName) { state.currentBucket = bucketName; state.currentPath = ''; state.selectedItems = []; updateSelectedCount(); updateBreadcrumb(); await listObjects(''); }
+    async function navigateToFolder(folderPath) { state.currentPath = folderPath; state.selectedItems = []; updateSelectedCount(); updateBreadcrumb(); await listObjects(folderPath); }
+    function navigateUp() { if (!state.currentPath) { loadBuckets(); return; } const pathParts = state.currentPath.split('/').filter(p => p); pathParts.pop(); const newPath = pathParts.length > 0 ? pathParts.join('/') + '/' : ''; navigateToFolder(newPath); }
+    
+    // --- UI Rendering ---
+    function renderBucketsList() {
+        elements.fileBrowser.classList.remove('hidden');
+        elements.initialState.classList.add('hidden');
+        if (state.buckets.length === 0) {
+            elements.emptyState.classList.remove('hidden');
+            elements.fileList.innerHTML = '';
+            return;
+        }
+        elements.emptyState.classList.add('hidden');
+        elements.fileList.innerHTML = '';
+        state.buckets.forEach(bucket => {
+            const isSelected = state.selectedItems.some(item => item.isBucket && item.Name === bucket.Name);
+            const row = document.createElement('tr');
+            row.className = `hover:bg-gray-50 ${isSelected ? 'bg-blue-50' : ''}`;
+            row.innerHTML = `
+                <td class="px-6 py-4"><input type="checkbox" class="custom-checkbox item-checkbox" data-type="bucket" data-name="${bucket.Name}" ${isSelected ? 'checked' : ''}></td>
+                <td class="px-6 py-4"><div class="flex items-center"><div class="flex-shrink-0 h-10 w-10 flex items-center justify-center"><i class="fas fa-database text-blue-600 text-xl"></i></div><div class="ml-4"><button class="text-sm font-medium text-blue-600 hover:text-blue-800" data-bucket="${bucket.Name}">${bucket.Name}</button></div></div></td>
+                <td class="px-6 py-4 text-sm text-gray-500">--</td>
+                <td class="px-6 py-4 text-sm text-gray-500">${new Date(bucket.CreationDate).toLocaleString()}</td>
+                <td class="px-6 py-4 text-sm font-medium"><button class="text-gray-500 hover:text-red-600" title="Delete Bucket" data-action="delete" data-type="bucket" data-name="${bucket.Name}"><i class="fas fa-trash-alt"></i></button></td>`;
+            elements.fileList.appendChild(row);
+        });
+        addEventListenersToRows();
+    }
+
+    function renderFilesList() {
+        elements.fileBrowser.classList.remove('hidden');
+        elements.initialState.classList.add('hidden');
+        
+        if (state.files.length === 0) {
+            elements.emptyState.classList.remove('hidden');
+        } else {
+             elements.emptyState.classList.add('hidden');
+        }
+        elements.fileList.innerHTML = '';
+        const parentRow = document.createElement('tr');
+        parentRow.className = 'hover:bg-gray-50';
+        parentRow.innerHTML = `<td class="px-6 py-4"></td><td colspan="4" class="px-6 py-4"><button class="flex items-center text-sm font-medium text-blue-600 hover:text-blue-800" data-action="up"><i class="fas fa-level-up-alt mr-3"></i> ..</button></td>`;
+        elements.fileList.appendChild(parentRow);
+        parentRow.querySelector('[data-action="up"]').addEventListener('click', navigateUp);
+        state.files.forEach(file => {
+            const isSelected = state.selectedItems.some(item => item.Key === file.Key);
+            const name = file.isFolder ? file.Key.split('/').slice(-2, -1)[0] : file.Key.split('/').pop();
+            const row = document.createElement('tr');
+            row.className = `hover:bg-gray-50 ${isSelected ? 'bg-blue-50' : ''}`;
+            row.innerHTML = `
+                <td class="px-6 py-4"><input type="checkbox" class="custom-checkbox item-checkbox" data-type="${file.isFolder ? 'folder' : 'file'}" data-key="${file.Key}" ${isSelected ? 'checked' : ''}></td>
+                <td class="px-6 py-4"><div class="flex items-center"><div class="flex-shrink-0 h-10 w-10 flex items-center justify-center"><i class="fas ${file.isFolder ? 'fa-folder text-yellow-500' : 'fa-file text-blue-500'} text-xl"></i></div><div class="ml-4">${file.isFolder ? `<button class="text-sm font-medium text-blue-600 hover:text-blue-800" data-folder="${file.Key}">${name}</button>` : `<div class="text-sm font-medium text-gray-900">${name}</div>`}</div></div></td>
+                <td class="px-6 py-4 text-sm text-gray-500">${file.isFolder ? '--' : formatFileSize(file.Size)}</td>
+                <td class="px-6 py-4 text-sm text-gray-500">${new Date(file.LastModified).toLocaleString()}</td>
+                <td class="px-6 py-4 text-sm font-medium"><button class="text-gray-500 hover:text-red-600" title="Delete Item" data-action="delete" data-type="${file.isFolder ? 'folder' : 'file'}" data-key="${file.Key}"><i class="fas fa-trash-alt"></i></button></td>`;
+            elements.fileList.appendChild(row);
+        });
+        addEventListenersToRows();
+    }
+
+    function updateBreadcrumb() {
+        const ol = document.createElement('ol');
+        ol.className = 'flex items-center space-x-1 text-sm';
+        const rootBtnClass = state.isConnected ? "text-blue-600 hover:text-blue-800" : "text-gray-500 cursor-not-allowed";
+        ol.innerHTML = `<li><button class="${rootBtnClass}" id="breadcrumb-root">S3</button></li>`;
+        if (state.currentBucket) {
+            ol.innerHTML += `<li><span class="mx-1 text-gray-400">/</span></li><li><button class="text-blue-600 hover:text-blue-800" id="breadcrumb-bucket">${state.currentBucket}</button></li>`;
+            let currentPath = '';
+            const pathParts = state.currentPath.split('/').filter(p => p);
+            pathParts.forEach(part => {
+                currentPath += `${part}/`;
+                ol.innerHTML += `<li><span class="mx-1 text-gray-400">/</span></li><li><button class="text-blue-600 hover:text-blue-800" data-path="${currentPath}">${part}</button></li>`;
+            });
+        }
+        elements.breadcrumb.innerHTML = '';
+        elements.breadcrumb.appendChild(ol);
+        const rootBtn = document.getElementById('breadcrumb-root');
+        if (rootBtn && state.isConnected) rootBtn.addEventListener('click', loadBuckets);
+        const bucketBtn = document.getElementById('breadcrumb-bucket');
+        if (bucketBtn) bucketBtn.addEventListener('click', () => navigateToBucket(state.currentBucket));
+        elements.breadcrumb.querySelectorAll('[data-path]').forEach(btn => {
+            btn.addEventListener('click', (e) => navigateToFolder(e.target.dataset.path));
+        });
+    }
+
+    // --- Event Handling & Listeners ---
+    function addEventListenersToRows() {
+        document.querySelectorAll('[data-bucket]').forEach(btn => btn.addEventListener('click', (e) => navigateToBucket(e.currentTarget.dataset.bucket)));
+        document.querySelectorAll('[data-folder]').forEach(btn => btn.addEventListener('click', (e) => navigateToFolder(e.currentTarget.dataset.folder)));
+        document.querySelectorAll('[data-action="delete"]').forEach(btn => btn.addEventListener('click', (e) => {
+            const button = e.currentTarget;
+            const type = button.dataset.type;
+            const key = button.dataset.key;
+            const name = button.dataset.name;
+            if (type === 'bucket') {
+                state.selectedItems = state.buckets.filter(b => b.Name === name).map(b => ({ ...b, isBucket: true }));
+            } else {
+                state.selectedItems = state.files.filter(f => f.Key === key).map(f => ({ ...f, isFolder: f.Key.endsWith('/') }));
+            }
+            prepareDeleteModal();
+            showModal(elements.deleteModal);
+        }));
+        document.querySelectorAll('.item-checkbox').forEach(checkbox => checkbox.addEventListener('change', handleCheckboxChange));
+    }
+
+    function handleCheckboxChange(e) {
+        const checkbox = e.target;
+        const type = checkbox.dataset.type;
+        const key = checkbox.dataset.key;
+        const name = checkbox.dataset.name;
+        // Remove item if it exists
+        state.selectedItems = state.selectedItems.filter(item => {
+            if (item.isBucket) return item.Name !== name;
+            return item.Key !== key;
+        });
+        // Add item if checked
+        if (checkbox.checked) {
+            if (type === 'bucket') {
+                const bucket = state.buckets.find(b => b.Name === name);
+                if (bucket) state.selectedItems.push({ ...bucket, isBucket: true });
+            } else {
+                const file = state.files.find(f => f.Key === key);
+                if (file) state.selectedItems.push(file);
+            }
+        }
+        updateSelectedCount();
+    }
+
+    // 更新上传文件列表的 UI，移除了进度条相关逻辑
+    function handleFileSelect() {
+        elements.uploadList.innerHTML = '';
+        Array.from(elements.fileUpload.files).forEach(file => {
+            elements.uploadList.innerHTML += `
+                <div class="p-2 border-b">
+                    <div class="flex justify-between items-center text-sm">
+                        <span class="truncate w-60" title="${file.name}">${file.name}</span>
+                        <span class="text-gray-500">${formatFileSize(file.size)}</span>
+                    </div>
+                </div>`;
+        });
+    }
+
+    // --- Helper Functions ---
+    function formatFileSize(bytes) { if (bytes == null || bytes === 0) return '0 Bytes'; const k = 1024; const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB']; const i = Math.floor(Math.log(bytes) / Math.log(k)); return `${parseFloat((bytes / Math.pow(k, i)).toFixed(2))} ${sizes[i]}`; }
+    function updateSelectedCount() { const count = state.selectedItems.length; elements.selectedCount.textContent = `${count} item${count !== 1 ? 's' : ''} selected`; elements.selectAllCheckbox.checked = false; }
+    function showLoading(show) { elements.loading.style.display = show ? 'flex' : 'none'; }
+    function showStatusMessage(message, type = 'info') { elements.statusMessage.textContent = message; elements.statusMessage.className = 'text-sm transition-colors'; if (type === 'error') elements.statusMessage.classList.add('text-red-600'); else if (type === 'success') elements.statusMessage.classList.add('text-green-600'); else if (type === 'info') elements.statusMessage.classList.add('text-blue-600'); else elements.statusMessage.classList.add('text-gray-600'); }
+    function refreshContent() { if (!state.isConnected) return; state.selectedItems = []; updateSelectedCount(); if (state.currentBucket === null) { loadBuckets(); } else { listObjects(state.currentPath); } }
+    function prepareDeleteModal() { elements.deleteItemsList.innerHTML = ''; elements.deleteMessage.textContent = `Are you sure you want to delete ${state.selectedItems.length} item(s)? This action cannot be undone.`; state.selectedItems.forEach(item => { const div = document.createElement('div'); div.className = 'flex items-center py-1 px-2 text-sm'; if (item.isBucket) { div.innerHTML = `<i class="fas fa-database text-gray-500 mr-2"></i><span>Bucket: ${item.Name}</span>`; } else if (item.isFolder) { div.innerHTML = `<i class="fas fa-folder text-yellow-500 mr-2"></i><span>Folder: ${item.Key}</span>`; } else { div.innerHTML = `<i class="fas fa-file text-blue-500 mr-2"></i><span>File: ${item.Key.split('/').pop()}</span>`; } elements.deleteItemsList.appendChild(div); }); }
+
+    // --- Initialization ---
+    function setupEventListeners() {
+        elements.connectBtn.addEventListener('click', () => {
+            elements.modalEndpoint.value = elements.endpoint.value;
+            elements.modalAccessKey.value = elements.accessKey.value;
+            elements.modalSecretKey.value = elements.secretKey.value;
+            elements.modalRegion.value = elements.region.value;
+            showModal(elements.connectModal);
+        });
+
+        // Modal event listeners
+        elements.closeConnectModal.addEventListener('click', () => hideModal(elements.connectModal));
+        elements.cancelConnect.addEventListener('click', () => hideModal(elements.connectModal));
+        elements.confirmConnect.addEventListener('click', () => connectToAWS(false));
+        
+        elements.createBucketBtn.addEventListener('click', () => { if (!state.isConnected) { showStatusMessage('Please connect first', 'error'); return; } elements.bucketRegion.value = state.awsConfig.region; showModal(elements.newBucketModal); });
+        elements.closeBucketModal.addEventListener('click', () => hideModal(elements.newBucketModal));
+        elements.cancelBucket.addEventListener('click', () => hideModal(elements.newBucketModal));
+        elements.createBucket.addEventListener('click', createBucket);
+        
+        elements.newFolderBtn.addEventListener('click', () => { if (!state.currentBucket) { showStatusMessage('Please select a bucket first', 'error'); return; } showModal(elements.newFolderModal); });
+        elements.closeFolderModal.addEventListener('click', () => hideModal(elements.newFolderModal));
+        elements.cancelFolder.addEventListener('click', () => hideModal(elements.newFolderModal));
+        elements.createFolder.addEventListener('click', createFolder);
+        
+        elements.uploadBtn.addEventListener('click', () => { if (!state.currentBucket) { showStatusMessage('Please select a bucket first', 'error'); return; } elements.fileUpload.value = ''; elements.uploadList.innerHTML = ''; showModal(elements.uploadModal); });
+        elements.closeUploadModal.addEventListener('click', () => hideModal(elements.uploadModal));
+        elements.cancelUpload.addEventListener('click', () => hideModal(elements.uploadModal));
+        elements.startUpload.addEventListener('click', startUpload);
+        elements.fileUpload.addEventListener('change', handleFileSelect);
+        
+        elements.deleteBtn.addEventListener('click', () => { if (state.selectedItems.length === 0) { showStatusMessage('Please select items to delete', 'error'); return; } prepareDeleteModal(); showModal(elements.deleteModal); });
+        elements.closeDeleteModal.addEventListener('click', () => hideModal(elements.deleteModal));
+        elements.cancelDelete.addEventListener('click', () => hideModal(elements.deleteModal));
+        elements.confirmDelete.addEventListener('click', confirmDelete);
+        
+        elements.refreshBtn.addEventListener('click', refreshContent);
+        
+        // Drag and Drop
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(ev => elements.dropZone.addEventListener(ev, e => { e.preventDefault(); e.stopPropagation(); }));
+        ['dragenter', 'dragover'].forEach(ev => elements.dropZone.addEventListener(ev, () => elements.dropZone.classList.add('border-blue-500')));
+        ['dragleave', 'drop'].forEach(ev => elements.dropZone.addEventListener(ev, () => elements.dropZone.classList.remove('border-blue-500')));
+        elements.dropZone.addEventListener('drop', e => { elements.fileUpload.files = e.dataTransfer.files; handleFileSelect(); });
+        
+        // Select all
+        elements.selectAllCheckbox.addEventListener('change', (e) => {
+            document.querySelectorAll('.item-checkbox').forEach(checkbox => {
+                if (checkbox.checked !== e.target.checked) {
+                    checkbox.checked = e.target.checked;
+                    handleCheckboxChange({ target: checkbox });
+                }
+            });
+        });
+    }
+
+    function init() {
+        setupEventListeners();
+        showStatusMessage('Ready. Please connect to your S3 storage.', 'info');
+        updateBreadcrumb();
+        
+        const regionOptions = elements.region.innerHTML;
+        elements.modalRegion.innerHTML = regionOptions;
+        elements.bucketRegion.innerHTML = regionOptions;
+
+        const savedConfig = localStorage.getItem('awsS3ManagerConfig');
+        if (savedConfig) {
+            try {
+                const config = JSON.parse(savedConfig);
+                state.awsConfig = { ...state.awsConfig, ...config };
+                elements.endpoint.value = config.endpoint || '';
+                elements.accessKey.value = config.accessKeyId || '';
+                elements.secretKey.value = config.secretAccessKey || '';
+                elements.region.value = config.region || 'us-east-1';
+            } catch (e) {
+                console.error('Failed to parse saved config', e);
+                localStorage.removeItem('awsS3ManagerConfig');
+            }
+        }
+    }
+
+    // 运行应用
+    init();
+    </script>
+</body>
+</html>
