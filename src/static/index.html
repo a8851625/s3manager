@@ -39,7 +39,7 @@
                     <div class="bg-blue-600 p-2 rounded-lg">
                         <i class="fas fa-database text-white text-xl"></i>
                     </div>
-                    <h1 class="text-xl font-bold text-gray-800">S3 Manager (Deno Backend)</h1>
+                    <h1 class="text-xl font-bold text-gray-800">S3 Manager</h1>
                 </div>
                 <div class="flex items-center space-x-4">
                     <button id="connect-btn" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition duration-200 flex items-center space-x-2">
@@ -197,7 +197,8 @@
     <script>
     // --- Configuration ---
     // 定义后端 API 的基础 URL。确保这与你的 Deno 服务器运行的地址和端口匹配。
-    const API_BASE_URL = 'http://localhost:8000/api';
+    // const API_BASE_URL = 'http://localhost:8000/api';
+    const API_BASE_URL = `${window.location.origin}/api`;
 
     // --- State Management ---
     // 全局状态管理对象，用于跟踪应用的当前状态。
