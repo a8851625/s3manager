@@ -5,7 +5,7 @@ FROM denoland/deno:latest
 WORKDIR /app
 
 # 复制代码到容器
-COPY . .
+COPY src/* .
 
 RUN deno cache src/main.ts
 
